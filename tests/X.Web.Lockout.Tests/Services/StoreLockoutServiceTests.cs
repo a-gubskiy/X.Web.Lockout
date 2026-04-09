@@ -171,13 +171,3 @@ public class StoreLockoutServiceTests
             () => service.ResetAccessFailedAttemptsAsync("unknown"));
     }
 }
-
-public class TestUser
-{
-    public string Id { get; }
-
-    public TestUser(string id)
-    {
-        Id = id;
-    }
-}
