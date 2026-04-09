@@ -9,11 +9,18 @@ public class DistributedLockoutService : ILockoutService
     private const string KeyPrefix = "lockout";
 
     private readonly LockoutOptions _options;
+    private readonly TimeProvider _timeProvider;
     private readonly IDistributedCache _cache;
 
     public DistributedLockoutService(LockoutOptions options, IDistributedCache cache)
+        : this(options, TimeProvider.System, cache)
+    {
+    }
+
+    public DistributedLockoutService(LockoutOptions options, TimeProvider timeProvider, IDistributedCache cache)
     {
         _options = options;
+        _timeProvider = timeProvider;
         _cache = cache;
     }
 
@@ -27,7 +34,7 @@ public class DistributedLockoutService : ILockoutService
             return false;
         }
 
-        return entry.LockoutEnd.HasValue && entry.LockoutEnd.Value > DateTimeOffset.UtcNow;
+        return entry.LockoutEnd.HasValue && entry.LockoutEnd.Value > _timeProvider.GetUtcNow();
     }
 
     public async Task RecordAccessFailedAttemptAsync(string userId, CancellationToken cancellationToken = default)
@@ -39,7 +46,7 @@ public class DistributedLockoutService : ILockoutService
 
         if (entry.FailedAccessCount >= _options.MaxFailedAccessAttempts)
         {
-            entry.LockoutEnd = DateTimeOffset.UtcNow.Add(_options.DefaultLockoutTimeSpan);
+            entry.LockoutEnd = _timeProvider.GetUtcNow().Add(_options.DefaultLockoutTimeSpan);
         }
 
         await SaveEntryAsync(key, entry, cancellationToken);

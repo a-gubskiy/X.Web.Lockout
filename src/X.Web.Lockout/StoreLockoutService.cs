@@ -5,11 +5,18 @@ namespace X.Web.Lockout;
 public class StoreLockoutService<TUser> : ILockoutService where TUser : class
 {
     private readonly LockoutOptions _options;
+    private readonly TimeProvider _timeProvider;
     private readonly IUserLockoutStore<TUser> _store;
 
     public StoreLockoutService(LockoutOptions options, IUserLockoutStore<TUser> store)
+        : this(options, TimeProvider.System, store)
+    {
+    }
+
+    public StoreLockoutService(LockoutOptions options, TimeProvider timeProvider, IUserLockoutStore<TUser> store)
     {
         _options = options;
+        _timeProvider = timeProvider;
         _store = store;
     }
 
@@ -18,7 +25,7 @@ public class StoreLockoutService<TUser> : ILockoutService where TUser : class
         var user = await FindUserOrThrowAsync(userId, cancellationToken);
         var lockoutEnd = await _store.GetLockoutEndDateAsync(user, cancellationToken);
 
-        return lockoutEnd.HasValue && lockoutEnd.Value > DateTimeOffset.UtcNow;
+        return lockoutEnd.HasValue && lockoutEnd.Value > _timeProvider.GetUtcNow();
     }
 
     public async Task RecordAccessFailedAttemptAsync(string userId, CancellationToken cancellationToken = default)
@@ -28,7 +35,7 @@ public class StoreLockoutService<TUser> : ILockoutService where TUser : class
 
         if (count >= _options.MaxFailedAccessAttempts)
         {
-            var lockoutEnd = DateTimeOffset.UtcNow.Add(_options.DefaultLockoutTimeSpan);
+            var lockoutEnd = _timeProvider.GetUtcNow().Add(_options.DefaultLockoutTimeSpan);
 
             await _store.SetLockoutEndDateAsync(user, lockoutEnd, cancellationToken);
         }
