@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/X.Web.Lockout/X.Web.Lockout.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+</Solution>
