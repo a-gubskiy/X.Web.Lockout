@@ -13,19 +13,21 @@ public class LockoutService : ILockoutService
         _options = options;
     }
 
-    public bool GetLockoutEnabled(string identifier)
+    public Task<bool> GetLockoutEnabledAsync(string userId, CancellationToken cancellationToken = default)
     {
-        if (!_entries.TryGetValue(identifier, out var entry))
+        if (!_entries.TryGetValue(userId, out var entry))
         {
-            return false;
+            return Task.FromResult(false);
         }
 
-        return entry.LockoutEnd.HasValue && entry.LockoutEnd.Value > DateTimeOffset.UtcNow;
+        var result = entry.LockoutEnd.HasValue && entry.LockoutEnd.Value > DateTimeOffset.UtcNow;
+
+        return Task.FromResult(result);
     }
 
-    public void RecordAccessFailedAttempt(string identifier)
+    public Task RecordAccessFailedAttemptAsync(string userId, CancellationToken cancellationToken = default)
     {
-        var entry = _entries.GetOrAdd(identifier, _ => new LockoutEntry());
+        var entry = _entries.GetOrAdd(userId, _ => new LockoutEntry());
 
         entry.FailedAccessCount++;
 
@@ -33,10 +35,14 @@ public class LockoutService : ILockoutService
         {
             entry.LockoutEnd = DateTimeOffset.UtcNow.Add(_options.DefaultLockoutTimeSpan);
         }
+
+        return Task.CompletedTask;
     }
 
-    public void ResetAccessFailedAttempts(string identifier)
+    public Task ResetAccessFailedAttemptsAsync(string userId, CancellationToken cancellationToken = default)
     {
-        _entries.TryRemove(identifier, out _);
+        _entries.TryRemove(userId, out _);
+
+        return Task.CompletedTask;
     }
 }

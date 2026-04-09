@@ -17,10 +17,10 @@ public class DistributedLockoutService : ILockoutService
         _cache = cache;
     }
 
-    public bool GetLockoutEnabled(string identifier)
+    public async Task<bool> GetLockoutEnabledAsync(string userId, CancellationToken cancellationToken = default)
     {
-        var key = BuildKey(identifier);
-        var entry = GetEntry(key);
+        var key = BuildKey(userId);
+        var entry = await GetEntryAsync(key, cancellationToken);
 
         if (entry is null)
         {
@@ -30,10 +30,10 @@ public class DistributedLockoutService : ILockoutService
         return entry.LockoutEnd.HasValue && entry.LockoutEnd.Value > DateTimeOffset.UtcNow;
     }
 
-    public void RecordAccessFailedAttempt(string identifier)
+    public async Task RecordAccessFailedAttemptAsync(string userId, CancellationToken cancellationToken = default)
     {
-        var key = BuildKey(identifier);
-        var entry = GetEntry(key) ?? new LockoutEntry();
+        var key = BuildKey(userId);
+        var entry = await GetEntryAsync(key, cancellationToken) ?? new LockoutEntry();
 
         entry.FailedAccessCount++;
 
@@ -42,19 +42,19 @@ public class DistributedLockoutService : ILockoutService
             entry.LockoutEnd = DateTimeOffset.UtcNow.Add(_options.DefaultLockoutTimeSpan);
         }
 
-        SaveEntry(key, entry);
+        await SaveEntryAsync(key, entry, cancellationToken);
     }
 
-    public void ResetAccessFailedAttempts(string identifier)
+    public async Task ResetAccessFailedAttemptsAsync(string userId, CancellationToken cancellationToken = default)
     {
-        var key = BuildKey(identifier);
+        var key = BuildKey(userId);
 
-        _cache.Remove(key);
+        await _cache.RemoveAsync(key, cancellationToken);
     }
 
-    private LockoutEntry? GetEntry(string key)
+    private async Task<LockoutEntry?> GetEntryAsync(string key, CancellationToken cancellationToken)
     {
-        var json = _cache.GetString(key);
+        var json = await _cache.GetStringAsync(key, cancellationToken);
 
         if (json is null)
         {
@@ -64,12 +64,12 @@ public class DistributedLockoutService : ILockoutService
         return JsonSerializer.Deserialize<LockoutEntry>(json);
     }
 
-    private void SaveEntry(string key, LockoutEntry entry)
+    private async Task SaveEntryAsync(string key, LockoutEntry entry, CancellationToken cancellationToken)
     {
         var json = JsonSerializer.Serialize(entry);
 
-        _cache.SetString(key, json);
+        await _cache.SetStringAsync(key, json, cancellationToken);
     }
 
-    private static string BuildKey(string identifier) => $"{KeyPrefix}:{identifier}";
+    private static string BuildKey(string userId) => $"{KeyPrefix}:{userId}";
 }
