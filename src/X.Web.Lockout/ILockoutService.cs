@@ -5,15 +5,15 @@ public interface ILockoutService
     /// <summary>
     /// Checks whether the given identifier+IP combination is currently locked out.
     /// </summary>
-    bool GetLockoutEnabled(string identifier, string ip);
+    bool GetLockoutEnabled(string identifier);
 
     /// <summary>
     /// Records a failed authentication attempt.
     /// </summary>
-    void RecordAccessFailedAttempt(string identifier, string ip);
+    void RecordAccessFailedAttempt(string identifier);
 
     /// <summary>
     /// Resets the failed attempt counter on successful authentication.
     /// </summary>
-    void ResetAccessFailedAttempts(string identifier, string ip);
+    void ResetAccessFailedAttempts(string identifier);
 }

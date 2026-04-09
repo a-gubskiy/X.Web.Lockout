@@ -13,28 +13,19 @@ public class LockoutService : ILockoutService
         _options = options;
     }
 
-    public bool GetLockoutEnabled(string identifier, string ip)
+    public bool GetLockoutEnabled(string identifier)
     {
-        var key = BuildKey(identifier, ip);
-
-        if (!_entries.TryGetValue(key, out var entry))
+        if (!_entries.TryGetValue(identifier, out var entry))
         {
             return false;
         }
 
-        if (entry.LockoutEnd.HasValue && entry.LockoutEnd.Value > DateTimeOffset.UtcNow)
-        {
-            return true;
-        }
-
-        return false;
+        return entry.LockoutEnd.HasValue && entry.LockoutEnd.Value > DateTimeOffset.UtcNow;
     }
 
-    public void RecordAccessFailedAttempt(string identifier, string ip)
+    public void RecordAccessFailedAttempt(string identifier)
     {
-        var key = BuildKey(identifier, ip);
-
-        var entry = _entries.GetOrAdd(key, _ => new LockoutEntry());
+        var entry = _entries.GetOrAdd(identifier, _ => new LockoutEntry());
 
         entry.FailedAccessCount++;
 
@@ -44,12 +35,8 @@ public class LockoutService : ILockoutService
         }
     }
 
-    public void ResetAccessFailedAttempts(string identifier, string ip)
+    public void ResetAccessFailedAttempts(string identifier)
     {
-        var key = BuildKey(identifier, ip);
-
-        _entries.TryRemove(key, out _);
+        _entries.TryRemove(identifier, out _);
     }
-
-    private static string BuildKey(string identifier, string ip) => $"{identifier}:{ip}";
 }

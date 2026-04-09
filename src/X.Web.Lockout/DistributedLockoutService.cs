@@ -17,9 +17,9 @@ public class DistributedLockoutService : ILockoutService
         _cache = cache;
     }
 
-    public bool GetLockoutEnabled(string identifier, string ip)
+    public bool GetLockoutEnabled(string identifier)
     {
-        var key = BuildKey(identifier, ip);
+        var key = BuildKey(identifier);
         var entry = GetEntry(key);
 
         if (entry is null)
@@ -30,9 +30,9 @@ public class DistributedLockoutService : ILockoutService
         return entry.LockoutEnd.HasValue && entry.LockoutEnd.Value > DateTimeOffset.UtcNow;
     }
 
-    public void RecordAccessFailedAttempt(string identifier, string ip)
+    public void RecordAccessFailedAttempt(string identifier)
     {
-        var key = BuildKey(identifier, ip);
+        var key = BuildKey(identifier);
         var entry = GetEntry(key) ?? new LockoutEntry();
 
         entry.FailedAccessCount++;
@@ -45,9 +45,9 @@ public class DistributedLockoutService : ILockoutService
         SaveEntry(key, entry);
     }
 
-    public void ResetAccessFailedAttempts(string identifier, string ip)
+    public void ResetAccessFailedAttempts(string identifier)
     {
-        var key = BuildKey(identifier, ip);
+        var key = BuildKey(identifier);
 
         _cache.Remove(key);
     }
@@ -71,5 +71,5 @@ public class DistributedLockoutService : ILockoutService
         _cache.SetString(key, json);
     }
 
-    private static string BuildKey(string identifier, string ip) => $"{KeyPrefix}:{identifier}:{ip}";
+    private static string BuildKey(string identifier) => $"{KeyPrefix}:{identifier}";
 }
