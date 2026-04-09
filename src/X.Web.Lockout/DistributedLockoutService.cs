@@ -6,6 +6,8 @@ namespace X.Web.Lockout;
 
 public class DistributedLockoutService : ILockoutService
 {
+    private const string KeyPrefix = "lockout";
+
     private readonly LockoutOptions _options;
     private readonly IDistributedCache _cache;
 
@@ -69,5 +71,5 @@ public class DistributedLockoutService : ILockoutService
         _cache.SetString(key, json);
     }
 
-    private static string BuildKey(string identifier, string ip) => $"lockout:{identifier}:{ip}";
+    private static string BuildKey(string identifier, string ip) => $"{KeyPrefix}:{identifier}:{ip}";
 }
