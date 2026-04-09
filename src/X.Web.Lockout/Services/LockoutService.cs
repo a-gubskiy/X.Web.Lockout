@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Identity;
 
-namespace X.Web.Lockout;
+namespace X.Web.Lockout.Services;
 
 public class LockoutService : ILockoutService
 {

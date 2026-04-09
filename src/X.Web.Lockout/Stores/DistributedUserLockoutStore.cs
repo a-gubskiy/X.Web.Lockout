@@ -1,16 +1,20 @@
-using System.Collections.Concurrent;
+using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Caching.Distributed;
 
-namespace X.Web.Lockout;
+namespace X.Web.Lockout.Stores;
 
-public class UserLockoutStore<TUser> : IUserLockoutStore<TUser> where TUser : class
+public class DistributedUserLockoutStore<TUser> : IUserLockoutStore<TUser> where TUser : class
 {
-    private readonly IUserStore<TUser> _userStore;
-    private readonly ConcurrentDictionary<string, LockoutEntry> _lockoutInfos = new();
-    private readonly ConcurrentDictionary<string, bool> _lockoutEnabled = new();
+    private const string LockoutPrefix = "lockout";
+    private const string LockoutEnabledPrefix = "lockout-enabled";
 
-    public UserLockoutStore(IUserStore<TUser> userStore)
+    private readonly IDistributedCache _cache;
+    private readonly IUserStore<TUser> _userStore;
+
+    public DistributedUserLockoutStore(IDistributedCache cache, IUserStore<TUser> userStore)
     {
+        _cache = cache;
         _userStore = userStore;
     }
 
@@ -94,34 +98,47 @@ public class UserLockoutStore<TUser> : IUserLockoutStore<TUser> where TUser : cl
 
     public async Task<bool> GetLockoutEnabledAsync(TUser user, CancellationToken cancellationToken)
     {
-        var userId = await _userStore.GetUserIdAsync(user, cancellationToken);
+        var key = await GetCacheKeyAsync(user, LockoutEnabledPrefix, cancellationToken);
+        var value = await _cache.GetStringAsync(key, cancellationToken);
 
-        return _lockoutEnabled.GetValueOrDefault(userId);
+        return value is not null && bool.Parse(value);
     }
 
     public async Task SetLockoutEnabledAsync(TUser user, bool enabled, CancellationToken cancellationToken)
     {
+        var key = await GetCacheKeyAsync(user, LockoutEnabledPrefix, cancellationToken);
+
+        await _cache.SetStringAsync(key, enabled.ToString(), cancellationToken);
+    }
+
+    private async Task<string> GetCacheKeyAsync(
+        TUser user,
+        string prefix,
+        CancellationToken cancellationToken)
+    {
         var userId = await _userStore.GetUserIdAsync(user, cancellationToken);
 
-        _lockoutEnabled[userId] = enabled;
+        return $"{prefix}:{userId}";
     }
 
     private async Task<LockoutEntry> GetLockoutEntryAsync(TUser user, CancellationToken cancellationToken)
     {
-        var userId = await _userStore.GetUserIdAsync(user, cancellationToken);
+        var key = await GetCacheKeyAsync(user, LockoutPrefix, cancellationToken);
+        var json = await _cache.GetStringAsync(key, cancellationToken);
 
-        if (_lockoutInfos.TryGetValue(userId, out var info))
+        if (json is null)
         {
-            return info;
+            return new LockoutEntry();
         }
 
-        return new LockoutEntry();
+        return JsonSerializer.Deserialize<LockoutEntry>(json) ?? new LockoutEntry();
     }
 
     private async Task SaveLockoutEntryAsync(TUser user, LockoutEntry info, CancellationToken cancellationToken)
     {
-        var userId = await _userStore.GetUserIdAsync(user, cancellationToken);
+        var key = await GetCacheKeyAsync(user, LockoutPrefix, cancellationToken);
+        var json = JsonSerializer.Serialize(info);
 
-        _lockoutInfos[userId] = info;
+        await _cache.SetStringAsync(key, json, cancellationToken);
     }
 }

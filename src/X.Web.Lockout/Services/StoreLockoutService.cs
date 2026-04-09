@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 
-namespace X.Web.Lockout;
+namespace X.Web.Lockout.Services;
 
 public class StoreLockoutService<TUser> : ILockoutService where TUser : class
 {

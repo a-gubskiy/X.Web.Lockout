@@ -2,7 +2,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Distributed;
 
-namespace X.Web.Lockout;
+namespace X.Web.Lockout.Services;
 
 public class DistributedLockoutService : ILockoutService
 {
