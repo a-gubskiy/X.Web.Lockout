@@ -2,5 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/X.Web.Lockout/X.Web.Lockout.csproj" />
   </Folder>
-  <Folder Name="/tests/" />
+  <Folder Name="/tests/">
+    <Project Path="tests/X.Web.Lockout.Tests/X.Web.Lockout.Tests.csproj" />
+  </Folder>
 </Solution>
