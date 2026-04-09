@@ -13,7 +13,7 @@ public class LockoutService : ILockoutService
         _options = options;
     }
 
-    public bool IsLockedOut(string identifier, string ip)
+    public bool GetLockoutEnabled(string identifier, string ip)
     {
         var key = BuildKey(identifier, ip);
 
@@ -30,7 +30,7 @@ public class LockoutService : ILockoutService
         return false;
     }
 
-    public void RecordFailedAttempt(string identifier, string ip)
+    public void RecordAccessFailedAttempt(string identifier, string ip)
     {
         var key = BuildKey(identifier, ip);
 
@@ -44,7 +44,7 @@ public class LockoutService : ILockoutService
         }
     }
 
-    public void ResetFailedAccessAttempts(string identifier, string ip)
+    public void ResetAccessFailedAttempts(string identifier, string ip)
     {
         var key = BuildKey(identifier, ip);
 
