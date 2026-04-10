@@ -10,10 +10,10 @@ public interface ILockoutService
     /// <summary>
     /// Records a failed authentication attempt.
     /// </summary>
-    Task RecordAccessFailedAttemptAsync(string userId, CancellationToken cancellationToken = default);
+    Task IncrementAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Resets the failed attempt counter on successful authentication.
     /// </summary>
-    Task ResetAccessFailedAttemptsAsync(string userId, CancellationToken cancellationToken = default);
+    Task ResetAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default);
 }

@@ -30,8 +30,8 @@ public class LockoutServiceTests
     {
         var service = CreateService();
 
-        await service.RecordAccessFailedAttemptAsync("user1");
-        await service.RecordAccessFailedAttemptAsync("user1");
+        await service.IncrementAccessFailedCountAsync("user1");
+        await service.IncrementAccessFailedCountAsync("user1");
 
         var result = await service.GetLockoutEnabledAsync("user1");
 
@@ -45,7 +45,7 @@ public class LockoutServiceTests
 
         for (var i = 0; i < _options.MaxFailedAccessAttempts; i++)
         {
-            await service.RecordAccessFailedAttemptAsync("user1");
+            await service.IncrementAccessFailedCountAsync("user1");
         }
 
         var result = await service.GetLockoutEnabledAsync("user1");
@@ -60,7 +60,7 @@ public class LockoutServiceTests
 
         for (var i = 0; i < _options.MaxFailedAccessAttempts; i++)
         {
-            await service.RecordAccessFailedAttemptAsync("user1");
+            await service.IncrementAccessFailedCountAsync("user1");
         }
 
         _timeProvider.Advance(TimeSpan.FromMinutes(6));
@@ -77,12 +77,12 @@ public class LockoutServiceTests
 
         for (var i = 0; i < _options.MaxFailedAccessAttempts; i++)
         {
-            await service.RecordAccessFailedAttemptAsync("user1");
+            await service.IncrementAccessFailedCountAsync("user1");
         }
 
         Assert.True(await service.GetLockoutEnabledAsync("user1"));
 
-        await service.ResetAccessFailedAttemptsAsync("user1");
+        await service.ResetAccessFailedCountAsync("user1");
 
         Assert.False(await service.GetLockoutEnabledAsync("user1"));
     }
@@ -92,13 +92,13 @@ public class LockoutServiceTests
     {
         var service = CreateService();
 
-        await service.RecordAccessFailedAttemptAsync("user1");
-        await service.RecordAccessFailedAttemptAsync("user1");
-        await service.ResetAccessFailedAttemptsAsync("user1");
+        await service.IncrementAccessFailedCountAsync("user1");
+        await service.IncrementAccessFailedCountAsync("user1");
+        await service.ResetAccessFailedCountAsync("user1");
 
         // Should need full MaxFailedAccessAttempts again to lock out
-        await service.RecordAccessFailedAttemptAsync("user1");
-        await service.RecordAccessFailedAttemptAsync("user1");
+        await service.IncrementAccessFailedCountAsync("user1");
+        await service.IncrementAccessFailedCountAsync("user1");
 
         Assert.False(await service.GetLockoutEnabledAsync("user1"));
     }
@@ -110,7 +110,7 @@ public class LockoutServiceTests
 
         for (var i = 0; i < _options.MaxFailedAccessAttempts; i++)
         {
-            await service.RecordAccessFailedAttemptAsync("user1");
+            await service.IncrementAccessFailedCountAsync("user1");
         }
 
         Assert.True(await service.GetLockoutEnabledAsync("user1"));
@@ -123,7 +123,7 @@ public class LockoutServiceTests
 
         for (var i = 0; i < _options.MaxFailedAccessAttempts; i++)
         {
-            await service.RecordAccessFailedAttemptAsync("user1");
+            await service.IncrementAccessFailedCountAsync("user1");
         }
 
         Assert.True(await service.GetLockoutEnabledAsync("user1"));

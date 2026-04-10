@@ -28,7 +28,7 @@ public class StoreLockoutService<TUser> : ILockoutService where TUser : class
         return lockoutEnd.HasValue && lockoutEnd.Value > _timeProvider.GetUtcNow();
     }
 
-    public async Task RecordAccessFailedAttemptAsync(string userId, CancellationToken cancellationToken = default)
+    public async Task IncrementAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
     {
         var user = await FindUserOrThrowAsync(userId, cancellationToken);
         var count = await _store.IncrementAccessFailedCountAsync(user, cancellationToken);
@@ -41,7 +41,7 @@ public class StoreLockoutService<TUser> : ILockoutService where TUser : class
         }
     }
 
-    public async Task ResetAccessFailedAttemptsAsync(string userId, CancellationToken cancellationToken = default)
+    public async Task ResetAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
     {
         var user = await FindUserOrThrowAsync(userId, cancellationToken);
 

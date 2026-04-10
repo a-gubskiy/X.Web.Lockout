@@ -32,7 +32,7 @@ public class LockoutService : ILockoutService
         return Task.FromResult(result);
     }
 
-    public Task RecordAccessFailedAttemptAsync(string userId, CancellationToken cancellationToken = default)
+    public Task IncrementAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
     {
         var entry = _entries.GetOrAdd(userId, _ => new LockoutEntry());
 
@@ -46,7 +46,7 @@ public class LockoutService : ILockoutService
         return Task.CompletedTask;
     }
 
-    public Task ResetAccessFailedAttemptsAsync(string userId, CancellationToken cancellationToken = default)
+    public Task ResetAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
     {
         _entries.TryRemove(userId, out _);
 

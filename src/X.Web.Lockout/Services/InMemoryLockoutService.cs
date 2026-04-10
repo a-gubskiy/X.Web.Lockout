@@ -37,7 +37,7 @@ public class MemoryLockoutService : ILockoutService
         return Task.FromResult(result);
     }
 
-    public Task RecordAccessFailedAttemptAsync(string userId, CancellationToken cancellationToken = default)
+    public Task IncrementAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
     {
         var key = BuildKey(userId);
 
@@ -53,12 +53,15 @@ public class MemoryLockoutService : ILockoutService
             entry.LockoutEnd = _timeProvider.GetUtcNow().Add(_options.DefaultLockoutTimeSpan);
         }
 
-        _cache.Set(key, entry);
+        _cache.Set(key, entry, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = GetEntryLifetime(entry)
+        });
 
         return Task.CompletedTask;
     }
 
-    public Task ResetAccessFailedAttemptsAsync(string userId, CancellationToken cancellationToken = default)
+    public Task ResetAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
     {
         var key = BuildKey(userId);
 
@@ -68,4 +71,23 @@ public class MemoryLockoutService : ILockoutService
     }
 
     private static string BuildKey(string userId) => $"{KeyPrefix}:{userId}";
+
+    private TimeSpan GetEntryLifetime(LockoutEntry entry)
+    {
+        // If locked out, live until the lockout ends so the entry self-evicts.
+        // Otherwise, use DefaultLockoutTimeSpan as a sliding window for tracking
+        // failed attempts — an attacker who pauses longer than that gets a clean slate,
+        // matching standard brute-force throttling behavior.
+        if (entry.LockoutEnd.HasValue)
+        {
+            var remaining = entry.LockoutEnd.Value - _timeProvider.GetUtcNow();
+
+            if (remaining > TimeSpan.Zero)
+            {
+                return remaining;
+            }
+        }
+
+        return _options.DefaultLockoutTimeSpan;
+    }
 }

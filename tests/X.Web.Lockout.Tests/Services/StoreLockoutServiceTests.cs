@@ -83,7 +83,7 @@ public class StoreLockoutServiceTests
 
         var service = CreateService();
 
-        await service.RecordAccessFailedAttemptAsync("user1");
+        await service.IncrementAccessFailedCountAsync("user1");
 
         _storeMock.Verify(
             s => s.SetLockoutEndDateAsync(It.IsAny<TestUser>(), It.IsAny<DateTimeOffset?>(), It.IsAny<CancellationToken>()),
@@ -99,7 +99,7 @@ public class StoreLockoutServiceTests
 
         var service = CreateService();
 
-        await service.RecordAccessFailedAttemptAsync("user1");
+        await service.IncrementAccessFailedCountAsync("user1");
 
         _storeMock.Verify(
             s => s.SetLockoutEndDateAsync(
@@ -118,7 +118,7 @@ public class StoreLockoutServiceTests
 
         var service = CreateService();
 
-        await service.RecordAccessFailedAttemptAsync("user1");
+        await service.IncrementAccessFailedCountAsync("user1");
 
         _storeMock.Verify(
             s => s.SetLockoutEndDateAsync(
@@ -133,7 +133,7 @@ public class StoreLockoutServiceTests
     {
         var service = CreateService();
 
-        await service.ResetAccessFailedAttemptsAsync("user1");
+        await service.ResetAccessFailedCountAsync("user1");
 
         _storeMock.Verify(
             s => s.ResetAccessFailedCountAsync(It.IsAny<TestUser>(), It.IsAny<CancellationToken>()),
@@ -173,7 +173,7 @@ public class StoreLockoutServiceTests
         var service = CreateService();
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.RecordAccessFailedAttemptAsync("unknown"));
+            () => service.IncrementAccessFailedCountAsync("unknown"));
     }
 
     [Fact]
@@ -182,6 +182,6 @@ public class StoreLockoutServiceTests
         var service = CreateService();
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => service.ResetAccessFailedAttemptsAsync("unknown"));
+            () => service.ResetAccessFailedCountAsync("unknown"));
     }
 }

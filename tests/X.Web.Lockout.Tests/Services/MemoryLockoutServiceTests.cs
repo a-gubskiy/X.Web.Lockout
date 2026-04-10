@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
+using Moq;
 using X.Web.Lockout.Services;
 
 namespace X.Web.Lockout.Tests.Services;
@@ -37,8 +38,8 @@ public class MemoryLockoutServiceTests
     {
         var service = CreateService();
 
-        await service.RecordAccessFailedAttemptAsync("user1");
-        await service.RecordAccessFailedAttemptAsync("user1");
+        await service.IncrementAccessFailedCountAsync("user1");
+        await service.IncrementAccessFailedCountAsync("user1");
 
         var result = await service.GetLockoutEnabledAsync("user1");
 
@@ -52,7 +53,7 @@ public class MemoryLockoutServiceTests
 
         for (var i = 0; i < _options.MaxFailedAccessAttempts; i++)
         {
-            await service.RecordAccessFailedAttemptAsync("user1");
+            await service.IncrementAccessFailedCountAsync("user1");
         }
 
         var result = await service.GetLockoutEnabledAsync("user1");
@@ -67,7 +68,7 @@ public class MemoryLockoutServiceTests
 
         for (var i = 0; i < _options.MaxFailedAccessAttempts; i++)
         {
-            await service.RecordAccessFailedAttemptAsync("user1");
+            await service.IncrementAccessFailedCountAsync("user1");
         }
 
         _timeProvider.Advance(TimeSpan.FromMinutes(6));
@@ -84,12 +85,12 @@ public class MemoryLockoutServiceTests
 
         for (var i = 0; i < _options.MaxFailedAccessAttempts; i++)
         {
-            await service.RecordAccessFailedAttemptAsync("user1");
+            await service.IncrementAccessFailedCountAsync("user1");
         }
 
         Assert.True(await service.GetLockoutEnabledAsync("user1"));
 
-        await service.ResetAccessFailedAttemptsAsync("user1");
+        await service.ResetAccessFailedCountAsync("user1");
 
         Assert.False(await service.GetLockoutEnabledAsync("user1"));
     }
@@ -99,12 +100,12 @@ public class MemoryLockoutServiceTests
     {
         var service = CreateService();
 
-        await service.RecordAccessFailedAttemptAsync("user1");
-        await service.RecordAccessFailedAttemptAsync("user1");
-        await service.ResetAccessFailedAttemptsAsync("user1");
+        await service.IncrementAccessFailedCountAsync("user1");
+        await service.IncrementAccessFailedCountAsync("user1");
+        await service.ResetAccessFailedCountAsync("user1");
 
-        await service.RecordAccessFailedAttemptAsync("user1");
-        await service.RecordAccessFailedAttemptAsync("user1");
+        await service.IncrementAccessFailedCountAsync("user1");
+        await service.IncrementAccessFailedCountAsync("user1");
 
         Assert.False(await service.GetLockoutEnabledAsync("user1"));
     }
@@ -116,11 +117,76 @@ public class MemoryLockoutServiceTests
 
         for (var i = 0; i < _options.MaxFailedAccessAttempts; i++)
         {
-            await service.RecordAccessFailedAttemptAsync("user1");
+            await service.IncrementAccessFailedCountAsync("user1");
         }
 
         Assert.True(await service.GetLockoutEnabledAsync("user1"));
         Assert.False(await service.GetLockoutEnabledAsync("user2"));
+    }
+
+    [Fact]
+    public async Task RecordAccessFailedAttemptAsync_BelowThreshold_SetsExpirationToDefaultLockoutTimeSpan()
+    {
+        var cacheMock = new Mock<IMemoryCache>();
+        var entryMock = new Mock<ICacheEntry>();
+        entryMock.SetupAllProperties();
+        cacheMock
+            .Setup(c => c.CreateEntry(It.IsAny<object>()))
+            .Returns(entryMock.Object);
+
+        var service = new MemoryLockoutService(_options, _timeProvider, cacheMock.Object);
+
+        await service.IncrementAccessFailedCountAsync("user1");
+
+        Assert.Equal(_options.DefaultLockoutTimeSpan, entryMock.Object.AbsoluteExpirationRelativeToNow);
+    }
+
+    [Fact]
+    public async Task RecordAccessFailedAttemptAsync_AtThreshold_SetsExpirationToLockoutDuration()
+    {
+        var cacheMock = new Mock<IMemoryCache>();
+        var existingEntry = new LockoutEntry
+        {
+            FailedAccessCount = _options.MaxFailedAccessAttempts - 1
+        };
+        object? outVal = existingEntry;
+        cacheMock.Setup(c => c.TryGetValue(It.IsAny<object>(), out outVal)).Returns(true);
+
+        var entryMock = new Mock<ICacheEntry>();
+        entryMock.SetupAllProperties();
+        cacheMock.Setup(c => c.CreateEntry(It.IsAny<object>())).Returns(entryMock.Object);
+
+        var service = new MemoryLockoutService(_options, _timeProvider, cacheMock.Object);
+
+        await service.IncrementAccessFailedCountAsync("user1");
+
+        // Threshold hit — entry now has LockoutEnd; expiration should equal the remaining lockout duration
+        Assert.Equal(_options.DefaultLockoutTimeSpan, entryMock.Object.AbsoluteExpirationRelativeToNow);
+    }
+
+    [Fact]
+    public async Task RecordAccessFailedAttemptAsync_WhenExistingLockoutEndIsInPast_FallsBackToDefaultLockoutTimeSpan()
+    {
+        // Existing entry has a LockoutEnd that has already passed.
+        // GetEntryLifetime should ignore it and use DefaultLockoutTimeSpan as the sliding window.
+        var cacheMock = new Mock<IMemoryCache>();
+        var staleEntry = new LockoutEntry
+        {
+            FailedAccessCount = 1,
+            LockoutEnd = _timeProvider.GetUtcNow().AddMinutes(-10)
+        };
+        object? outVal = staleEntry;
+        cacheMock.Setup(c => c.TryGetValue(It.IsAny<object>(), out outVal)).Returns(true);
+
+        var entryMock = new Mock<ICacheEntry>();
+        entryMock.SetupAllProperties();
+        cacheMock.Setup(c => c.CreateEntry(It.IsAny<object>())).Returns(entryMock.Object);
+
+        var service = new MemoryLockoutService(_options, _timeProvider, cacheMock.Object);
+
+        await service.IncrementAccessFailedCountAsync("user1");
+
+        Assert.Equal(_options.DefaultLockoutTimeSpan, entryMock.Object.AbsoluteExpirationRelativeToNow);
     }
 
     [Fact]
@@ -131,7 +197,7 @@ public class MemoryLockoutServiceTests
 
         for (var i = 0; i < _options.MaxFailedAccessAttempts; i++)
         {
-            await service.RecordAccessFailedAttemptAsync("user1");
+            await service.IncrementAccessFailedCountAsync("user1");
         }
 
         Assert.True(await service.GetLockoutEnabledAsync("user1"));

@@ -37,7 +37,7 @@ public class DistributedLockoutService : ILockoutService
         return entry.LockoutEnd.HasValue && entry.LockoutEnd.Value > _timeProvider.GetUtcNow();
     }
 
-    public async Task RecordAccessFailedAttemptAsync(string userId, CancellationToken cancellationToken = default)
+    public async Task IncrementAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
     {
         var key = BuildKey(userId);
         var entry = await GetEntryAsync(key, cancellationToken) ?? new LockoutEntry();
@@ -52,7 +52,7 @@ public class DistributedLockoutService : ILockoutService
         await SaveEntryAsync(key, entry, cancellationToken);
     }
 
-    public async Task ResetAccessFailedAttemptsAsync(string userId, CancellationToken cancellationToken = default)
+    public async Task ResetAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
     {
         var key = BuildKey(userId);
 
@@ -74,8 +74,31 @@ public class DistributedLockoutService : ILockoutService
     private async Task SaveEntryAsync(string key, LockoutEntry entry, CancellationToken cancellationToken)
     {
         var json = JsonSerializer.Serialize(entry);
+        var options = new DistributedCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = GetEntryLifetime(entry)
+        };
 
-        await _cache.SetStringAsync(key, json, cancellationToken);
+        await _cache.SetStringAsync(key, json, options, cancellationToken);
+    }
+
+    private TimeSpan GetEntryLifetime(LockoutEntry entry)
+    {
+        // If locked out, live until the lockout ends so the entry self-evicts.
+        // Otherwise, use DefaultLockoutTimeSpan as a sliding window for tracking
+        // failed attempts — an attacker who pauses longer than that gets a clean slate,
+        // matching standard brute-force throttling behavior.
+        if (entry.LockoutEnd.HasValue)
+        {
+            var remaining = entry.LockoutEnd.Value - _timeProvider.GetUtcNow();
+
+            if (remaining > TimeSpan.Zero)
+            {
+                return remaining;
+            }
+        }
+
+        return _options.DefaultLockoutTimeSpan;
     }
 
     private static string BuildKey(string userId) => $"{KeyPrefix}:{userId}";
