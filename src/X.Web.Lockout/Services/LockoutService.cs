@@ -3,10 +3,8 @@ using Microsoft.AspNetCore.Identity;
 
 namespace X.Web.Lockout.Services;
 
-public class LockoutService : ILockoutService
+public class LockoutService : LockoutEntryServiceBase
 {
-    private readonly LockoutOptions _options;
-    private readonly TimeProvider _timeProvider;
     private readonly ConcurrentDictionary<string, LockoutEntry> _entries = new();
 
     public LockoutService(LockoutOptions options)
@@ -15,38 +13,25 @@ public class LockoutService : ILockoutService
     }
 
     public LockoutService(LockoutOptions options, TimeProvider timeProvider)
+        : base(options, timeProvider)
     {
-        _options = options;
-        _timeProvider = timeProvider;
     }
 
-    public Task<bool> GetLockoutEnabledAsync(string userId, CancellationToken cancellationToken = default)
+    protected override Task<LockoutEntry?> LoadAsync(string userId, CancellationToken cancellationToken)
     {
-        if (!_entries.TryGetValue(userId, out var entry))
-        {
-            return Task.FromResult(false);
-        }
+        _entries.TryGetValue(userId, out var entry);
 
-        var result = entry.LockoutEndDate.HasValue && entry.LockoutEndDate.Value > _timeProvider.GetUtcNow();
-
-        return Task.FromResult(result);
+        return Task.FromResult(entry);
     }
 
-    public Task IncrementAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
+    protected override Task SaveAsync(string userId, LockoutEntry entry, CancellationToken cancellationToken)
     {
-        var entry = _entries.GetOrAdd(userId, _ => new LockoutEntry());
-
-        entry.AccessFailedCount++;
-
-        if (entry.AccessFailedCount >= _options.MaxFailedAccessAttempts)
-        {
-            entry.LockoutEndDate = _timeProvider.GetUtcNow().Add(_options.DefaultLockoutTimeSpan);
-        }
+        _entries[userId] = entry;
 
         return Task.CompletedTask;
     }
 
-    public Task ResetAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
+    protected override Task RemoveAsync(string userId, CancellationToken cancellationToken)
     {
         _entries.TryRemove(userId, out _);
 

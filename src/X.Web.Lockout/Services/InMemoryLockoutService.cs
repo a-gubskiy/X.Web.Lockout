@@ -3,12 +3,10 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace X.Web.Lockout.Services;
 
-public class MemoryLockoutService : ILockoutService
+public class MemoryLockoutService : LockoutEntryServiceBase
 {
     private const string KeyPrefix = "lockout";
 
-    private readonly LockoutOptions _options;
-    private readonly TimeProvider _timeProvider;
     private readonly IMemoryCache _cache;
 
     public MemoryLockoutService(LockoutOptions options, IMemoryCache cache)
@@ -17,43 +15,21 @@ public class MemoryLockoutService : ILockoutService
     }
 
     public MemoryLockoutService(LockoutOptions options, TimeProvider timeProvider, IMemoryCache cache)
+        : base(options, timeProvider)
     {
-        _options = options;
-        _timeProvider = timeProvider;
         _cache = cache;
     }
 
-    public Task<bool> GetLockoutEnabledAsync(string userId, CancellationToken cancellationToken = default)
+    protected override Task<LockoutEntry?> LoadAsync(string userId, CancellationToken cancellationToken)
     {
-        var key = BuildKey(userId);
+        _cache.TryGetValue<LockoutEntry>(BuildKey(userId), out var entry);
 
-        if (!_cache.TryGetValue<LockoutEntry>(key, out var entry) || entry is null)
-        {
-            return Task.FromResult(false);
-        }
-
-        var result = entry.LockoutEndDate.HasValue && entry.LockoutEndDate.Value > _timeProvider.GetUtcNow();
-
-        return Task.FromResult(result);
+        return Task.FromResult(entry);
     }
 
-    public Task IncrementAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
+    protected override Task SaveAsync(string userId, LockoutEntry entry, CancellationToken cancellationToken)
     {
-        var key = BuildKey(userId);
-
-        if (!_cache.TryGetValue<LockoutEntry>(key, out var entry) || entry is null)
-        {
-            entry = new LockoutEntry();
-        }
-
-        entry.AccessFailedCount++;
-
-        if (entry.AccessFailedCount >= _options.MaxFailedAccessAttempts)
-        {
-            entry.LockoutEndDate = _timeProvider.GetUtcNow().Add(_options.DefaultLockoutTimeSpan);
-        }
-
-        _cache.Set(key, entry, new MemoryCacheEntryOptions
+        _cache.Set(BuildKey(userId), entry, new MemoryCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = GetEntryLifetime(entry)
         });
@@ -61,33 +37,12 @@ public class MemoryLockoutService : ILockoutService
         return Task.CompletedTask;
     }
 
-    public Task ResetAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
+    protected override Task RemoveAsync(string userId, CancellationToken cancellationToken)
     {
-        var key = BuildKey(userId);
-
-        _cache.Remove(key);
+        _cache.Remove(BuildKey(userId));
 
         return Task.CompletedTask;
     }
 
     private static string BuildKey(string userId) => $"{KeyPrefix}:{userId}";
-
-    private TimeSpan GetEntryLifetime(LockoutEntry entry)
-    {
-        // If locked out, live until the lockout ends so the entry self-evicts.
-        // Otherwise, use DefaultLockoutTimeSpan as a sliding window for tracking
-        // failed attempts — an attacker who pauses longer than that gets a clean slate,
-        // matching standard brute-force throttling behavior.
-        if (entry.LockoutEndDate.HasValue)
-        {
-            var remaining = entry.LockoutEndDate.Value - _timeProvider.GetUtcNow();
-
-            if (remaining > TimeSpan.Zero)
-            {
-                return remaining;
-            }
-        }
-
-        return _options.DefaultLockoutTimeSpan;
-    }
 }
