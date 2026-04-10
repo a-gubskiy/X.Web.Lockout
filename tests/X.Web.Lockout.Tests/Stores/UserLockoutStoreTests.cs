@@ -208,4 +208,93 @@ public class UserLockoutStoreTests
         Assert.True(result.Succeeded);
         _userStoreMock.Verify(s => s.DeleteAsync(_user, It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task UpdateAsync_DelegatesToInnerStore()
+    {
+        _userStoreMock
+            .Setup(s => s.UpdateAsync(_user, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(IdentityResult.Success);
+
+        var store = CreateStore();
+
+        var result = await store.UpdateAsync(_user, CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        _userStoreMock.Verify(s => s.UpdateAsync(_user, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetUserNameAsync_DelegatesToInnerStore()
+    {
+        _userStoreMock
+            .Setup(s => s.GetUserNameAsync(_user, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("name");
+
+        var store = CreateStore();
+
+        var result = await store.GetUserNameAsync(_user, CancellationToken.None);
+
+        Assert.Equal("name", result);
+    }
+
+    [Fact]
+    public async Task SetUserNameAsync_DelegatesToInnerStore()
+    {
+        var store = CreateStore();
+
+        await store.SetUserNameAsync(_user, "new-name", CancellationToken.None);
+
+        _userStoreMock.Verify(
+            s => s.SetUserNameAsync(_user, "new-name", It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetNormalizedUserNameAsync_DelegatesToInnerStore()
+    {
+        _userStoreMock
+            .Setup(s => s.GetNormalizedUserNameAsync(_user, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("NAME");
+
+        var store = CreateStore();
+
+        var result = await store.GetNormalizedUserNameAsync(_user, CancellationToken.None);
+
+        Assert.Equal("NAME", result);
+    }
+
+    [Fact]
+    public async Task SetNormalizedUserNameAsync_DelegatesToInnerStore()
+    {
+        var store = CreateStore();
+
+        await store.SetNormalizedUserNameAsync(_user, "NEW-NAME", CancellationToken.None);
+
+        _userStoreMock.Verify(
+            s => s.SetNormalizedUserNameAsync(_user, "NEW-NAME", It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task FindByNameAsync_DelegatesToInnerStore()
+    {
+        _userStoreMock
+            .Setup(s => s.FindByNameAsync("USER1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_user);
+
+        var store = CreateStore();
+
+        var result = await store.FindByNameAsync("USER1", CancellationToken.None);
+
+        Assert.Same(_user, result);
+    }
+
+    [Fact]
+    public void Dispose_DoesNotThrow()
+    {
+        var store = CreateStore();
+
+        store.Dispose();
+    }
 }
