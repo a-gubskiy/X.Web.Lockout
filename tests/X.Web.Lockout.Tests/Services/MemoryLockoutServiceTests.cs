@@ -147,7 +147,7 @@ public class MemoryLockoutServiceTests
         var cacheMock = new Mock<IMemoryCache>();
         var existingEntry = new LockoutEntry
         {
-            FailedAccessCount = _options.MaxFailedAccessAttempts - 1
+            AccessFailedCount = _options.MaxFailedAccessAttempts - 1
         };
         object? outVal = existingEntry;
         cacheMock.Setup(c => c.TryGetValue(It.IsAny<object>(), out outVal)).Returns(true);
@@ -172,8 +172,8 @@ public class MemoryLockoutServiceTests
         var cacheMock = new Mock<IMemoryCache>();
         var staleEntry = new LockoutEntry
         {
-            FailedAccessCount = 1,
-            LockoutEnd = _timeProvider.GetUtcNow().AddMinutes(-10)
+            AccessFailedCount = 1,
+            LockoutEndDate = _timeProvider.GetUtcNow().AddMinutes(-10)
         };
         object? outVal = staleEntry;
         cacheMock.Setup(c => c.TryGetValue(It.IsAny<object>(), out outVal)).Returns(true);

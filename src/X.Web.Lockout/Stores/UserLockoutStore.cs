@@ -52,7 +52,7 @@ public class UserLockoutStore<TUser> : IUserLockoutStore<TUser> where TUser : cl
     {
         var info = await GetLockoutEntryAsync(user, cancellationToken);
 
-        return info.LockoutEnd;
+        return info.LockoutEndDate;
     }
 
     public async Task SetLockoutEndDateAsync(
@@ -62,7 +62,7 @@ public class UserLockoutStore<TUser> : IUserLockoutStore<TUser> where TUser : cl
     {
         var info = await GetLockoutEntryAsync(user, cancellationToken);
 
-        info.LockoutEnd = lockoutEnd;
+        info.LockoutEndDate = lockoutEnd;
 
         await SaveLockoutEntryAsync(user, info, cancellationToken);
     }
@@ -70,17 +70,17 @@ public class UserLockoutStore<TUser> : IUserLockoutStore<TUser> where TUser : cl
     public async Task<int> IncrementAccessFailedCountAsync(TUser user, CancellationToken cancellationToken)
     {
         var info = await GetLockoutEntryAsync(user, cancellationToken);
-        info.FailedAccessCount++;
+        info.AccessFailedCount++;
 
         await SaveLockoutEntryAsync(user, info, cancellationToken);
 
-        return info.FailedAccessCount;
+        return info.AccessFailedCount;
     }
 
     public async Task ResetAccessFailedCountAsync(TUser user, CancellationToken cancellationToken)
     {
         var info = await GetLockoutEntryAsync(user, cancellationToken);
-        info.FailedAccessCount = 0;
+        info.AccessFailedCount = 0;
 
         await SaveLockoutEntryAsync(user, info, cancellationToken);
     }
@@ -89,7 +89,7 @@ public class UserLockoutStore<TUser> : IUserLockoutStore<TUser> where TUser : cl
     {
         var info = await GetLockoutEntryAsync(user, cancellationToken);
 
-        return info.FailedAccessCount;
+        return info.AccessFailedCount;
     }
 
     public async Task<bool> GetLockoutEnabledAsync(TUser user, CancellationToken cancellationToken)

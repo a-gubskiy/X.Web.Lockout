@@ -32,7 +32,7 @@ public class MemoryLockoutService : ILockoutService
             return Task.FromResult(false);
         }
 
-        var result = entry.LockoutEnd.HasValue && entry.LockoutEnd.Value > _timeProvider.GetUtcNow();
+        var result = entry.LockoutEndDate.HasValue && entry.LockoutEndDate.Value > _timeProvider.GetUtcNow();
 
         return Task.FromResult(result);
     }
@@ -46,11 +46,11 @@ public class MemoryLockoutService : ILockoutService
             entry = new LockoutEntry();
         }
 
-        entry.FailedAccessCount++;
+        entry.AccessFailedCount++;
 
-        if (entry.FailedAccessCount >= _options.MaxFailedAccessAttempts)
+        if (entry.AccessFailedCount >= _options.MaxFailedAccessAttempts)
         {
-            entry.LockoutEnd = _timeProvider.GetUtcNow().Add(_options.DefaultLockoutTimeSpan);
+            entry.LockoutEndDate = _timeProvider.GetUtcNow().Add(_options.DefaultLockoutTimeSpan);
         }
 
         _cache.Set(key, entry, new MemoryCacheEntryOptions
@@ -78,9 +78,9 @@ public class MemoryLockoutService : ILockoutService
         // Otherwise, use DefaultLockoutTimeSpan as a sliding window for tracking
         // failed attempts — an attacker who pauses longer than that gets a clean slate,
         // matching standard brute-force throttling behavior.
-        if (entry.LockoutEnd.HasValue)
+        if (entry.LockoutEndDate.HasValue)
         {
-            var remaining = entry.LockoutEnd.Value - _timeProvider.GetUtcNow();
+            var remaining = entry.LockoutEndDate.Value - _timeProvider.GetUtcNow();
 
             if (remaining > TimeSpan.Zero)
             {

@@ -27,7 +27,7 @@ public class LockoutService : ILockoutService
             return Task.FromResult(false);
         }
 
-        var result = entry.LockoutEnd.HasValue && entry.LockoutEnd.Value > _timeProvider.GetUtcNow();
+        var result = entry.LockoutEndDate.HasValue && entry.LockoutEndDate.Value > _timeProvider.GetUtcNow();
 
         return Task.FromResult(result);
     }
@@ -36,11 +36,11 @@ public class LockoutService : ILockoutService
     {
         var entry = _entries.GetOrAdd(userId, _ => new LockoutEntry());
 
-        entry.FailedAccessCount++;
+        entry.AccessFailedCount++;
 
-        if (entry.FailedAccessCount >= _options.MaxFailedAccessAttempts)
+        if (entry.AccessFailedCount >= _options.MaxFailedAccessAttempts)
         {
-            entry.LockoutEnd = _timeProvider.GetUtcNow().Add(_options.DefaultLockoutTimeSpan);
+            entry.LockoutEndDate = _timeProvider.GetUtcNow().Add(_options.DefaultLockoutTimeSpan);
         }
 
         return Task.CompletedTask;

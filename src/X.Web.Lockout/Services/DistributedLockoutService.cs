@@ -34,7 +34,7 @@ public class DistributedLockoutService : ILockoutService
             return false;
         }
 
-        return entry.LockoutEnd.HasValue && entry.LockoutEnd.Value > _timeProvider.GetUtcNow();
+        return entry.LockoutEndDate.HasValue && entry.LockoutEndDate.Value > _timeProvider.GetUtcNow();
     }
 
     public async Task IncrementAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
@@ -42,11 +42,11 @@ public class DistributedLockoutService : ILockoutService
         var key = BuildKey(userId);
         var entry = await GetEntryAsync(key, cancellationToken) ?? new LockoutEntry();
 
-        entry.FailedAccessCount++;
+        entry.AccessFailedCount++;
 
-        if (entry.FailedAccessCount >= _options.MaxFailedAccessAttempts)
+        if (entry.AccessFailedCount >= _options.MaxFailedAccessAttempts)
         {
-            entry.LockoutEnd = _timeProvider.GetUtcNow().Add(_options.DefaultLockoutTimeSpan);
+            entry.LockoutEndDate = _timeProvider.GetUtcNow().Add(_options.DefaultLockoutTimeSpan);
         }
 
         await SaveEntryAsync(key, entry, cancellationToken);
@@ -88,9 +88,9 @@ public class DistributedLockoutService : ILockoutService
         // Otherwise, use DefaultLockoutTimeSpan as a sliding window for tracking
         // failed attempts — an attacker who pauses longer than that gets a clean slate,
         // matching standard brute-force throttling behavior.
-        if (entry.LockoutEnd.HasValue)
+        if (entry.LockoutEndDate.HasValue)
         {
-            var remaining = entry.LockoutEnd.Value - _timeProvider.GetUtcNow();
+            var remaining = entry.LockoutEndDate.Value - _timeProvider.GetUtcNow();
 
             if (remaining > TimeSpan.Zero)
             {

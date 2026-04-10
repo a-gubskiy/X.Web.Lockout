@@ -168,8 +168,8 @@ public class DistributedLockoutServiceTests
 
         var staleEntry = new LockoutEntry
         {
-            FailedAccessCount = 1,
-            LockoutEnd = _timeProvider.GetUtcNow().AddMinutes(-10)
+            AccessFailedCount = 1,
+            LockoutEndDate = _timeProvider.GetUtcNow().AddMinutes(-10)
         };
         var staleJson = System.Text.Json.JsonSerializer.Serialize(staleEntry);
         await cache.SetStringAsync("lockout:user1", staleJson);
