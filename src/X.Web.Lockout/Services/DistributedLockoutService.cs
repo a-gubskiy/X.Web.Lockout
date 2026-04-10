@@ -4,7 +4,7 @@ using Microsoft.Extensions.Caching.Distributed;
 
 namespace X.Web.Lockout.Services;
 
-public class DistributedLockoutService : LockoutEntryServiceBase
+public class DistributedLockoutService : LockoutServiceBase
 {
     private const string KeyPrefix = "lockout";
 

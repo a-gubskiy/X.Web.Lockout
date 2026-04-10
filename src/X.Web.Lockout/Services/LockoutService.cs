@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace X.Web.Lockout.Services;
 
-public class LockoutService : LockoutEntryServiceBase
+public class LockoutService : LockoutServiceBase
 {
     private readonly ConcurrentDictionary<string, LockoutEntry> _entries = new();
 

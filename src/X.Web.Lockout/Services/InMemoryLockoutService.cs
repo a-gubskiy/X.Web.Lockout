@@ -3,7 +3,7 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace X.Web.Lockout.Services;
 
-public class MemoryLockoutService : LockoutEntryServiceBase
+public class MemoryLockoutService : LockoutServiceBase
 {
     private const string KeyPrefix = "lockout";
 

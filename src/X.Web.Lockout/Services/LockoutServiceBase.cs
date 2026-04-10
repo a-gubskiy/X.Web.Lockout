@@ -8,12 +8,12 @@ namespace X.Web.Lockout.Services;
 /// <c>IDistributedCache</c>, etc.). Derived classes only need to implement load, save,
 /// and remove operations; the threshold logic and time checks live here.
 /// </summary>
-public abstract class LockoutEntryServiceBase : ILockoutService
+public abstract class LockoutServiceBase : ILockoutService
 {
     protected LockoutOptions Options { get; }
     protected TimeProvider TimeProvider { get; }
 
-    protected LockoutEntryServiceBase(LockoutOptions options, TimeProvider timeProvider)
+    protected LockoutServiceBase(LockoutOptions options, TimeProvider timeProvider)
     {
         Options = options;
         TimeProvider = timeProvider;
