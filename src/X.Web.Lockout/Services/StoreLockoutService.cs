@@ -2,11 +2,15 @@ using Microsoft.AspNetCore.Identity;
 
 namespace X.Web.Lockout.Services;
 
+/// <summary>
+/// Adapts <see cref="StoreUserLockoutService{TUser}"/> to the userId-based
+/// <see cref="ILockoutService"/> contract by resolving the user via
+/// <see cref="IUserLockoutStore{TUser}.FindByIdAsync"/> before each call.
+/// </summary>
 public class StoreLockoutService<TUser> : ILockoutService where TUser : class
 {
-    private readonly LockoutOptions _options;
-    private readonly TimeProvider _timeProvider;
     private readonly IUserLockoutStore<TUser> _store;
+    private readonly IUserLockoutService<TUser> _inner;
 
     public StoreLockoutService(LockoutOptions options, IUserLockoutStore<TUser> store)
         : this(options, TimeProvider.System, store)
@@ -15,38 +19,29 @@ public class StoreLockoutService<TUser> : ILockoutService where TUser : class
 
     public StoreLockoutService(LockoutOptions options, TimeProvider timeProvider, IUserLockoutStore<TUser> store)
     {
-        _options = options;
-        _timeProvider = timeProvider;
         _store = store;
+        _inner = new StoreUserLockoutService<TUser>(options, timeProvider, store);
     }
 
     public async Task<bool> GetLockoutEnabledAsync(string userId, CancellationToken cancellationToken = default)
     {
         var user = await FindUserOrThrowAsync(userId, cancellationToken);
-        var lockoutEnd = await _store.GetLockoutEndDateAsync(user, cancellationToken);
 
-        return lockoutEnd.HasValue && lockoutEnd.Value > _timeProvider.GetUtcNow();
+        return await _inner.GetLockoutEnabledAsync(user, cancellationToken);
     }
 
     public async Task IncrementAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
     {
         var user = await FindUserOrThrowAsync(userId, cancellationToken);
-        var count = await _store.IncrementAccessFailedCountAsync(user, cancellationToken);
 
-        if (count >= _options.MaxFailedAccessAttempts)
-        {
-            var lockoutEnd = _timeProvider.GetUtcNow().Add(_options.DefaultLockoutTimeSpan);
-
-            await _store.SetLockoutEndDateAsync(user, lockoutEnd, cancellationToken);
-        }
+        await _inner.IncrementAccessFailedCountAsync(user, cancellationToken);
     }
 
     public async Task ResetAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
     {
         var user = await FindUserOrThrowAsync(userId, cancellationToken);
 
-        await _store.ResetAccessFailedCountAsync(user, cancellationToken);
-        await _store.SetLockoutEndDateAsync(user, null, cancellationToken);
+        await _inner.ResetAccessFailedCountAsync(user, cancellationToken);
     }
 
     private async Task<TUser> FindUserOrThrowAsync(string userId, CancellationToken cancellationToken)
