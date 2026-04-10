@@ -96,7 +96,7 @@ public class UserLockoutStore<TUser> : IUserLockoutStore<TUser> where TUser : cl
     {
         var userId = await _userStore.GetUserIdAsync(user, cancellationToken);
 
-        return _lockoutEnabled.GetValueOrDefault(userId);
+        return _lockoutEnabled.TryGetValue(userId, out var enabled) && enabled;
     }
 
     public async Task SetLockoutEnabledAsync(TUser user, bool enabled, CancellationToken cancellationToken)
