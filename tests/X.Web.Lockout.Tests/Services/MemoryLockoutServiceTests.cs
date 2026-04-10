@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Time.Testing;
@@ -7,7 +6,7 @@ using X.Web.Lockout.Services;
 
 namespace X.Web.Lockout.Tests.Services;
 
-public class DistributedLockoutServiceTests
+public class MemoryLockoutServiceTests
 {
     private readonly FakeTimeProvider _timeProvider = new();
     private readonly LockoutOptions _options = new()
@@ -16,12 +15,11 @@ public class DistributedLockoutServiceTests
         DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5)
     };
 
-    private DistributedLockoutService CreateService()
+    private MemoryLockoutService CreateService()
     {
-        var cache = new MemoryDistributedCache(
-            Options.Create(new MemoryDistributedCacheOptions()));
+        var cache = new MemoryCache(Options.Create(new MemoryCacheOptions()));
 
-        return new DistributedLockoutService(_options, _timeProvider, cache);
+        return new MemoryLockoutService(_options, _timeProvider, cache);
     }
 
     [Fact]
@@ -112,21 +110,6 @@ public class DistributedLockoutServiceTests
     }
 
     [Fact]
-    public async Task Constructor_WithOptionsAndCacheOnly_UsesSystemTimeProvider()
-    {
-        var cache = new MemoryDistributedCache(
-            Options.Create(new MemoryDistributedCacheOptions()));
-        var service = new DistributedLockoutService(_options, cache);
-
-        for (var i = 0; i < _options.MaxFailedAccessAttempts; i++)
-        {
-            await service.RecordAccessFailedAttemptAsync("user1");
-        }
-
-        Assert.True(await service.GetLockoutEnabledAsync("user1"));
-    }
-
-    [Fact]
     public async Task RecordAccessFailedAttemptAsync_IsolatesUsers()
     {
         var service = CreateService();
@@ -138,5 +121,19 @@ public class DistributedLockoutServiceTests
 
         Assert.True(await service.GetLockoutEnabledAsync("user1"));
         Assert.False(await service.GetLockoutEnabledAsync("user2"));
+    }
+
+    [Fact]
+    public async Task Constructor_WithOptionsAndCacheOnly_UsesSystemTimeProvider()
+    {
+        var cache = new MemoryCache(Options.Create(new MemoryCacheOptions()));
+        var service = new MemoryLockoutService(_options, cache);
+
+        for (var i = 0; i < _options.MaxFailedAccessAttempts; i++)
+        {
+            await service.RecordAccessFailedAttemptAsync("user1");
+        }
+
+        Assert.True(await service.GetLockoutEnabledAsync("user1"));
     }
 }

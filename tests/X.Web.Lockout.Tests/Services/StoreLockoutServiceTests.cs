@@ -145,6 +145,20 @@ public class StoreLockoutServiceTests
     }
 
     [Fact]
+    public async Task Constructor_WithOptionsAndStoreOnly_UsesSystemTimeProvider()
+    {
+        _storeMock
+            .Setup(s => s.GetLockoutEndDateAsync(It.IsAny<TestUser>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(DateTimeOffset.UtcNow.AddMinutes(5));
+
+        var service = new StoreLockoutService<TestUser>(_options, _storeMock.Object);
+
+        var result = await service.GetLockoutEnabledAsync("user1");
+
+        Assert.True(result);
+    }
+
+    [Fact]
     public async Task GetLockoutEnabledAsync_UserNotFound_Throws()
     {
         var service = CreateService();

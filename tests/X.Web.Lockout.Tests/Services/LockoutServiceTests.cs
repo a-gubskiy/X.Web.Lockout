@@ -104,6 +104,19 @@ public class LockoutServiceTests
     }
 
     [Fact]
+    public async Task Constructor_WithOptionsOnly_UsesSystemTimeProvider()
+    {
+        var service = new LockoutService(_options);
+
+        for (var i = 0; i < _options.MaxFailedAccessAttempts; i++)
+        {
+            await service.RecordAccessFailedAttemptAsync("user1");
+        }
+
+        Assert.True(await service.GetLockoutEnabledAsync("user1"));
+    }
+
+    [Fact]
     public async Task RecordAccessFailedAttemptAsync_IsolatesUsers()
     {
         var service = CreateService();
