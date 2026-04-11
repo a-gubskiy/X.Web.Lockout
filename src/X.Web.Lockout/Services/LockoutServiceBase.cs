@@ -26,12 +26,7 @@ public abstract class LockoutServiceBase : ILockoutService
     {
         var entry = await LoadAsync(userId, cancellationToken);
 
-        if (entry is null)
-        {
-            return false;
-        }
-
-        return entry.LockoutEndDate.HasValue && entry.LockoutEndDate.Value > TimeProvider.GetUtcNow();
+        return entry?.LockoutEndDate > TimeProvider.GetUtcNow();
     }
 
     public async Task IncrementAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
