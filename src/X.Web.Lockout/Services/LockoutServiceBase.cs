@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using X.Web.Lockout.Internal;
 
 namespace X.Web.Lockout.Services;
 
@@ -10,6 +11,8 @@ namespace X.Web.Lockout.Services;
 /// </summary>
 public abstract class LockoutServiceBase : ILockoutService
 {
+    private static readonly AsyncKeyedLock UserOperations = new();
+
     protected LockoutOptions Options { get; }
     protected TimeProvider TimeProvider { get; }
 
@@ -33,6 +36,8 @@ public abstract class LockoutServiceBase : ILockoutService
 
     public async Task IncrementAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
     {
+        using var lease = await UserOperations.AcquireAsync(userId, cancellationToken);
+
         var entry = await LoadAsync(userId, cancellationToken) ?? new LockoutEntry();
 
         entry.AccessFailedCount++;
@@ -47,7 +52,10 @@ public abstract class LockoutServiceBase : ILockoutService
 
     public async Task ResetAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)
     {
-        await RemoveAsync(userId, cancellationToken);
+        using (await UserOperations.AcquireAsync(userId, cancellationToken))
+        {
+            await RemoveAsync(userId, cancellationToken);
+        }
     }
 
     /// <summary>

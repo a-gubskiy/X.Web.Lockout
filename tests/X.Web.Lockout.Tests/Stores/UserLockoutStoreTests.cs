@@ -81,6 +81,27 @@ public class UserLockoutStoreTests
     }
 
     [Fact]
+    public async Task IncrementAccessFailedCountAsync_ParallelCalls_PreserveAllUpdates()
+    {
+        var coordinatedUserStore = new CoordinatedUserStore();
+        var store = new UserLockoutStore<TestUser>(coordinatedUserStore);
+
+        var firstIncrement = Task.Run(() => store.IncrementAccessFailedCountAsync(_user, CancellationToken.None));
+        await coordinatedUserStore.FirstGetUserIdStarted;
+
+        var secondIncrement = Task.Run(() => store.IncrementAccessFailedCountAsync(_user, CancellationToken.None));
+        await coordinatedUserStore.SecondGetUserIdStarted;
+
+        coordinatedUserStore.ReleaseGetUserId();
+
+        await Task.WhenAll(firstIncrement, secondIncrement);
+
+        var result = await store.GetAccessFailedCountAsync(_user, CancellationToken.None);
+
+        Assert.Equal(2, result);
+    }
+
+    [Fact]
     public async Task ResetAccessFailedCountAsync_ResetsToZero()
     {
         var store = CreateStore();

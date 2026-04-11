@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Identity;
+using X.Web.Lockout.Internal;
 
 namespace X.Web.Lockout.Services;
 
 public class StoreUserLockoutService<TUser> : IUserLockoutService<TUser> where TUser : class
 {
+    private static readonly AsyncKeyedLock UserOperations = new();
+
     private readonly LockoutOptions _options;
     private readonly TimeProvider _timeProvider;
     private readonly IUserLockoutStore<TUser> _store;
@@ -29,20 +32,30 @@ public class StoreUserLockoutService<TUser> : IUserLockoutService<TUser> where T
 
     public async Task IncrementAccessFailedCountAsync(TUser user, CancellationToken cancellationToken = default)
     {
-        var count = await _store.IncrementAccessFailedCountAsync(user, cancellationToken);
+        var userId = await _store.GetUserIdAsync(user, cancellationToken);
 
-        if (count >= _options.MaxFailedAccessAttempts)
+        using (await UserOperations.AcquireAsync(userId, cancellationToken))
         {
-            var lockoutEnd = _timeProvider.GetUtcNow().Add(_options.DefaultLockoutTimeSpan);
+            var count = await _store.IncrementAccessFailedCountAsync(user, cancellationToken);
 
-            await _store.SetLockoutEndDateAsync(user, lockoutEnd, cancellationToken);
+            if (count >= _options.MaxFailedAccessAttempts)
+            {
+                var lockoutEnd = _timeProvider.GetUtcNow().Add(_options.DefaultLockoutTimeSpan);
+
+                await _store.SetLockoutEndDateAsync(user, lockoutEnd, cancellationToken);
+            }
         }
     }
 
     public async Task ResetAccessFailedCountAsync(TUser user, CancellationToken cancellationToken = default)
     {
-        await _store.ResetAccessFailedCountAsync(user, cancellationToken);
+        var userId = await _store.GetUserIdAsync(user, cancellationToken);
 
-        await _store.SetLockoutEndDateAsync(user, null, cancellationToken);
+        using (await UserOperations.AcquireAsync(userId, cancellationToken))
+        {
+            await _store.ResetAccessFailedCountAsync(user, cancellationToken);
+
+            await _store.SetLockoutEndDateAsync(user, null, cancellationToken);
+        }
     }
 }

@@ -21,7 +21,7 @@ public class LockoutService : LockoutServiceBase
     {
         _entries.TryGetValue(userId, out var entry);
 
-        return Task.FromResult(entry);
+        return Task.FromResult<LockoutEntry?>(entry);
     }
 
     protected override Task SaveAsync(string userId, LockoutEntry entry, CancellationToken cancellationToken)

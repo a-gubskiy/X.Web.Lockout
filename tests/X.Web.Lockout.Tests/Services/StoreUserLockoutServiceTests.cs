@@ -20,6 +20,13 @@ public class StoreUserLockoutServiceTests
     private StoreUserLockoutService<TestUser> CreateService() =>
         new(_options, _timeProvider, _storeMock.Object);
 
+    public StoreUserLockoutServiceTests()
+    {
+        _storeMock
+            .Setup(s => s.GetUserIdAsync(_user, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_user.Id);
+    }
+
     // GetLockoutEnabledAsync
 
     [Fact]
@@ -232,5 +239,138 @@ public class StoreUserLockoutServiceTests
         var result = await service.GetLockoutEnabledAsync(_user);
 
         Assert.True(result);
+    }
+
+    [Fact]
+    public async Task IncrementAccessFailedCountAsync_ParallelCalls_DoNotLoseUpdates()
+    {
+        var options = new LockoutOptions
+        {
+            MaxFailedAccessAttempts = 2,
+            DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5)
+        };
+        var store = new CoordinatedLockoutStore(_user);
+        var service = new StoreUserLockoutService<TestUser>(options, _timeProvider, store);
+
+        var firstAttempt = Task.Run(() => service.IncrementAccessFailedCountAsync(_user));
+        await store.FirstIncrementStarted;
+
+        var secondAttempt = Task.Run(() => service.IncrementAccessFailedCountAsync(_user));
+        await Task.WhenAny(store.SecondIncrementStarted, Task.Delay(TimeSpan.FromMilliseconds(100)));
+
+        store.ReleaseFirstIncrement();
+
+        await Task.WhenAll(firstAttempt, secondAttempt);
+
+        Assert.Equal(2, store.AccessFailedCount);
+        Assert.Equal(_timeProvider.GetUtcNow().Add(options.DefaultLockoutTimeSpan), store.LockoutEndDate);
+    }
+
+    private sealed class CoordinatedLockoutStore : IUserLockoutStore<TestUser>
+    {
+        private readonly TaskCompletionSource<bool> _firstIncrementStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<bool> _secondIncrementStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<bool> _releaseFirstIncrement = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TestUser _user;
+
+        private int _incrementCallCount;
+
+        public CoordinatedLockoutStore(TestUser user)
+        {
+            _user = user;
+        }
+
+        public Task FirstIncrementStarted => _firstIncrementStarted.Task;
+
+        public Task SecondIncrementStarted => _secondIncrementStarted.Task;
+
+        public int AccessFailedCount { get; private set; }
+
+        public DateTimeOffset? LockoutEndDate { get; private set; }
+
+        public void ReleaseFirstIncrement()
+        {
+            _releaseFirstIncrement.TrySetResult(true);
+        }
+
+        public void Dispose()
+        {
+        }
+
+        public Task<string> GetUserIdAsync(TestUser user, CancellationToken cancellationToken) =>
+            Task.FromResult(user.Id);
+
+        public Task<string?> GetUserNameAsync(TestUser user, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task SetUserNameAsync(TestUser user, string? userName, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<string?> GetNormalizedUserNameAsync(TestUser user, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task SetNormalizedUserNameAsync(TestUser user, string? normalizedName, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IdentityResult> CreateAsync(TestUser user, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IdentityResult> UpdateAsync(TestUser user, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IdentityResult> DeleteAsync(TestUser user, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<TestUser?> FindByIdAsync(string userId, CancellationToken cancellationToken) =>
+            Task.FromResult<TestUser?>(userId == _user.Id ? _user : null);
+
+        public Task<TestUser?> FindByNameAsync(string normalizedUserName, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<DateTimeOffset?> GetLockoutEndDateAsync(TestUser user, CancellationToken cancellationToken) =>
+            Task.FromResult(LockoutEndDate);
+
+        public Task SetLockoutEndDateAsync(TestUser user, DateTimeOffset? lockoutEnd, CancellationToken cancellationToken)
+        {
+            LockoutEndDate = lockoutEnd;
+
+            return Task.CompletedTask;
+        }
+
+        public async Task<int> IncrementAccessFailedCountAsync(TestUser user, CancellationToken cancellationToken)
+        {
+            var snapshot = AccessFailedCount;
+            var callNumber = Interlocked.Increment(ref _incrementCallCount);
+
+            if (callNumber == 1)
+            {
+                _firstIncrementStarted.TrySetResult(true);
+                await _releaseFirstIncrement.Task.WaitAsync(cancellationToken);
+            }
+            else if (callNumber == 2)
+            {
+                _secondIncrementStarted.TrySetResult(true);
+            }
+
+            AccessFailedCount = snapshot + 1;
+
+            return AccessFailedCount;
+        }
+
+        public Task ResetAccessFailedCountAsync(TestUser user, CancellationToken cancellationToken)
+        {
+            AccessFailedCount = 0;
+
+            return Task.CompletedTask;
+        }
+
+        public Task<int> GetAccessFailedCountAsync(TestUser user, CancellationToken cancellationToken) =>
+            Task.FromResult(AccessFailedCount);
+
+        public Task<bool> GetLockoutEnabledAsync(TestUser user, CancellationToken cancellationToken) =>
+            Task.FromResult(true);
+
+        public Task SetLockoutEnabledAsync(TestUser user, bool enabled, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 }

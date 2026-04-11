@@ -26,6 +26,10 @@ public class StoreLockoutServiceTests
         _storeMock
             .Setup(s => s.FindByIdAsync("user1", It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
+
+        _storeMock
+            .Setup(s => s.GetUserIdAsync(user, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user.Id);
     }
 
     [Fact]
