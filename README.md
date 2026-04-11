@@ -1,7 +1,8 @@
 # X.Web.Lockout
 
-[![NuGet](https://img.shields.io/nuget/v/X.Web.Lockout.svg)](https://www.nuget.org/packages/X.Web.Lockout/)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Sponsor on GitHub](https://img.shields.io/badge/Sponsor_on_GitHub-ff7f00?logo=github&logoColor=white&style=for-the-badge)](https://github.com/sponsors/a-gubskiy)
+[![Subscribe on X](https://img.shields.io/badge/Subscribe_on_X-000000?logo=x&logoColor=white&style=for-the-badge)](https://x.com/andrew_gubskiy)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/X.Web.Lockout?style=for-the-badge&label=NuGet%20Downloads&color=004880&logo=nuget&logoColor=white)](https://www.nuget.org/packages/X.Web.Lockout)
 
 A small .NET library that adds user account lockout functionality on top of [ASP.NET Core Identity](https://learn.microsoft.com/aspnet/core/security/authentication/identity) (`Microsoft.Extensions.Identity.Core`).
 
