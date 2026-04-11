@@ -131,7 +131,7 @@ public interface IUserLockoutService<in TUser> where TUser : class
 | Service | Backing | When to use |
 |---|---|---|
 | `LockoutService` | `ConcurrentDictionary` | Quick start, single-instance apps. State lost on restart. **No automatic eviction** — entries grow unbounded; not recommended for production with untrusted user ids. |
-| `MemoryLockoutService` | `IMemoryCache` | Single-instance apps with auto-eviction. Configure `SizeLimit` on `MemoryCacheOptions` to bound memory. |
+| `MemoryLockoutService` | `IMemoryCache` | Single-instance apps with auto-eviction. Configure `SizeLimit` on `MemoryCacheOptions` to cap cache growth; each lockout entry uses `1` cache unit, so the limit caps tracked users. |
 | `DistributedLockoutService` | `IDistributedCache` | Multi-instance / load-balanced apps. Works with any `IDistributedCache` provider (Redis, SQL Server, NCache, etc.). |
 | `StoreLockoutService<TUser>` | `IUserLockoutStore<TUser>` | When lockout state should live in your existing user table (Entity Framework, Dapper, etc.). |
 | `StoreUserLockoutService<TUser>` | `IUserLockoutStore<TUser>` | Same as above, but takes the `TUser` instance directly (no `FindByIdAsync` lookup). |

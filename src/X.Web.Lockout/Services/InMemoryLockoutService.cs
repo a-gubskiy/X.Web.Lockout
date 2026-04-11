@@ -6,6 +6,7 @@ namespace X.Web.Lockout.Services;
 public class MemoryLockoutService : LockoutServiceBase
 {
     private const string KeyPrefix = "lockout";
+    private const long CacheUnitsPerEntry = 1;
 
     private readonly IMemoryCache _cache;
 
@@ -31,7 +32,8 @@ public class MemoryLockoutService : LockoutServiceBase
     {
         _cache.Set(BuildKey(userId), entry, new MemoryCacheEntryOptions
         {
-            AbsoluteExpirationRelativeToNow = GetEntryLifetime(entry)
+            AbsoluteExpirationRelativeToNow = GetEntryLifetime(entry),
+            Size = CacheUnitsPerEntry
         });
 
         return Task.CompletedTask;

@@ -202,4 +202,19 @@ public class MemoryLockoutServiceTests
 
         Assert.True(await service.GetLockoutEnabledAsync("user1"));
     }
+
+    [Fact]
+    public async Task IncrementAccessFailedCountAsync_WithSizeLimitedCache_PersistsEntry()
+    {
+        var cache = new MemoryCache(Options.Create(new MemoryCacheOptions
+        {
+            SizeLimit = 10
+        }));
+        var service = new MemoryLockoutService(_options, _timeProvider, cache);
+
+        await service.IncrementAccessFailedCountAsync("user1");
+        await service.IncrementAccessFailedCountAsync("user1");
+
+        Assert.False(await service.GetLockoutEnabledAsync("user1"));
+    }
 }
