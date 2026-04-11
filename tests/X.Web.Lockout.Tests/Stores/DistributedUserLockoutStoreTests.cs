@@ -12,12 +12,15 @@ public class DistributedUserLockoutStoreTests
     private readonly Mock<IUserStore<TestUser>> _userStoreMock = new();
     private readonly TestUser _user = new("user1");
 
-    private DistributedUserLockoutStore<TestUser> CreateStore()
+    public DistributedUserLockoutStoreTests()
     {
         _userStoreMock
             .Setup(s => s.GetUserIdAsync(_user, It.IsAny<CancellationToken>()))
             .ReturnsAsync(_user.Id);
+    }
 
+    private DistributedUserLockoutStore<TestUser> CreateStore()
+    {
         var cache = new MemoryDistributedCache(
             Options.Create(new MemoryDistributedCacheOptions()));
 

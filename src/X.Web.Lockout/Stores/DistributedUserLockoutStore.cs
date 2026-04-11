@@ -132,7 +132,13 @@ public class DistributedUserLockoutStore<TUser> : IUserLockoutStore<TUser> where
         {
             var key = GetCacheKey(userId, LockoutEnabledPrefix);
 
-            await _cache.SetStringAsync(key, enabled.ToString(), cancellationToken);
+            if (enabled)
+            {
+                await _cache.SetStringAsync(key, bool.TrueString, cancellationToken);
+                return;
+            }
+
+            await _cache.RemoveAsync(key, cancellationToken);
         }
     }
 
@@ -154,6 +160,13 @@ public class DistributedUserLockoutStore<TUser> : IUserLockoutStore<TUser> where
     private async Task SaveLockoutEntryAsync(string userId, LockoutEntry info, CancellationToken cancellationToken)
     {
         var key = GetCacheKey(userId, LockoutPrefix);
+
+        if (info.AccessFailedCount == 0 && info.LockoutEndDate is null)
+        {
+            await _cache.RemoveAsync(key, cancellationToken);
+            return;
+        }
+
         var json = JsonSerializer.Serialize(info);
 
         await _cache.SetStringAsync(key, json, cancellationToken);

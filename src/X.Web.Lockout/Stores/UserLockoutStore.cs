@@ -122,7 +122,13 @@ public class UserLockoutStore<TUser> : IUserLockoutStore<TUser> where TUser : cl
 
         using var lease = await UserOperations.AcquireAsync(userId, cancellationToken);
 
-        _lockoutEnabled[userId] = enabled;
+        if (enabled)
+        {
+            _lockoutEnabled[userId] = true;
+            return;
+        }
+
+        _lockoutEnabled.TryRemove(userId, out _);
     }
 
     private LockoutEntry GetLockoutEntry(string userId)
@@ -137,6 +143,12 @@ public class UserLockoutStore<TUser> : IUserLockoutStore<TUser> where TUser : cl
 
     private void SaveLockoutEntry(string userId, LockoutEntry info)
     {
+        if (info.AccessFailedCount == 0 && info.LockoutEndDate is null)
+        {
+            _lockoutInfos.TryRemove(userId, out _);
+            return;
+        }
+
         _lockoutInfos[userId] = info;
     }
 }
