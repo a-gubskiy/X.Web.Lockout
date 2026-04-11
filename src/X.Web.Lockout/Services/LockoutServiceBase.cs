@@ -33,16 +33,21 @@ public abstract class LockoutServiceBase : ILockoutService
     {
         using var lease = await UserOperations.AcquireAsync(userId, cancellationToken);
 
-        var entry = await LoadAsync(userId, cancellationToken) ?? new LockoutEntry();
+        // Construct a fresh entry rather than mutating the loaded one so that a concurrent
+        // unlocked reader (GetLockoutEnabledAsync) cannot observe a torn LockoutEndDate:
+        // the new reference is published atomically with all fields already set.
+        var current = await LoadAsync(userId, cancellationToken);
+        var nextCount = (current?.AccessFailedCount ?? 0) + 1;
 
-        entry.AccessFailedCount++;
-
-        if (entry.AccessFailedCount >= Options.MaxFailedAccessAttempts)
+        var updated = new LockoutEntry
         {
-            entry.LockoutEndDate = TimeProvider.GetUtcNow().Add(Options.DefaultLockoutTimeSpan);
-        }
+            AccessFailedCount = nextCount,
+            LockoutEndDate = nextCount >= Options.MaxFailedAccessAttempts
+                ? TimeProvider.GetUtcNow().Add(Options.DefaultLockoutTimeSpan)
+                : current?.LockoutEndDate
+        };
 
-        await SaveAsync(userId, entry, cancellationToken);
+        await SaveAsync(userId, updated, cancellationToken);
     }
 
     public async Task ResetAccessFailedCountAsync(string userId, CancellationToken cancellationToken = default)

@@ -15,11 +15,15 @@ public class UserLockoutStore<TUser> : UserLockoutStoreBase<TUser> where TUser :
     {
     }
 
+    // Write paths always publish a FRESH LockoutEntry instead of mutating the stored reference,
+    // so concurrent unlocked readers (GetLockoutEndDateAsync / GetAccessFailedCountAsync) either
+    // see the old reference or the new reference — never a partially-updated struct field.
+
     public override async Task<DateTimeOffset?> GetLockoutEndDateAsync(TUser user, CancellationToken cancellationToken)
     {
         var userId = await GetUserIdAsync(user, cancellationToken);
 
-        return GetLockoutEntry(userId).LockoutEndDate;
+        return _lockoutInfos.TryGetValue(userId, out var info) ? info.LockoutEndDate : null;
     }
 
     public override async Task SetLockoutEndDateAsync(
@@ -31,10 +35,14 @@ public class UserLockoutStore<TUser> : UserLockoutStoreBase<TUser> where TUser :
 
         using var lease = await UserOperations.AcquireAsync(userId, cancellationToken);
 
-        var info = GetLockoutEntry(userId);
-        info.LockoutEndDate = lockoutEnd;
+        var current = _lockoutInfos.TryGetValue(userId, out var existing) ? existing : null;
+        var updated = new LockoutEntry
+        {
+            AccessFailedCount = current?.AccessFailedCount ?? 0,
+            LockoutEndDate = lockoutEnd
+        };
 
-        SaveLockoutEntry(userId, info);
+        SaveLockoutEntry(userId, updated);
     }
 
     public override async Task<int> IncrementAccessFailedCountAsync(TUser user, CancellationToken cancellationToken)
@@ -43,12 +51,16 @@ public class UserLockoutStore<TUser> : UserLockoutStoreBase<TUser> where TUser :
 
         using var lease = await UserOperations.AcquireAsync(userId, cancellationToken);
 
-        var info = GetLockoutEntry(userId);
-        info.AccessFailedCount++;
+        var current = _lockoutInfos.TryGetValue(userId, out var existing) ? existing : null;
+        var updated = new LockoutEntry
+        {
+            AccessFailedCount = (current?.AccessFailedCount ?? 0) + 1,
+            LockoutEndDate = current?.LockoutEndDate
+        };
 
-        SaveLockoutEntry(userId, info);
+        SaveLockoutEntry(userId, updated);
 
-        return info.AccessFailedCount;
+        return updated.AccessFailedCount;
     }
 
     public override async Task ResetAccessFailedCountAsync(TUser user, CancellationToken cancellationToken)
@@ -57,17 +69,21 @@ public class UserLockoutStore<TUser> : UserLockoutStoreBase<TUser> where TUser :
 
         using var lease = await UserOperations.AcquireAsync(userId, cancellationToken);
 
-        var info = GetLockoutEntry(userId);
-        info.AccessFailedCount = 0;
+        var current = _lockoutInfos.TryGetValue(userId, out var existing) ? existing : null;
+        var updated = new LockoutEntry
+        {
+            AccessFailedCount = 0,
+            LockoutEndDate = current?.LockoutEndDate
+        };
 
-        SaveLockoutEntry(userId, info);
+        SaveLockoutEntry(userId, updated);
     }
 
     public override async Task<int> GetAccessFailedCountAsync(TUser user, CancellationToken cancellationToken)
     {
         var userId = await GetUserIdAsync(user, cancellationToken);
 
-        return GetLockoutEntry(userId).AccessFailedCount;
+        return _lockoutInfos.TryGetValue(userId, out var info) ? info.AccessFailedCount : 0;
     }
 
     public override async Task<bool> GetLockoutEnabledAsync(TUser user, CancellationToken cancellationToken)
@@ -91,9 +107,6 @@ public class UserLockoutStore<TUser> : UserLockoutStoreBase<TUser> where TUser :
 
         _lockoutEnabled.TryRemove(userId, out _);
     }
-
-    private LockoutEntry GetLockoutEntry(string userId) =>
-        _lockoutInfos.TryGetValue(userId, out var info) ? info : new LockoutEntry();
 
     private void SaveLockoutEntry(string userId, LockoutEntry info)
     {
